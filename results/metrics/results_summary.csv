@@ -1,0 +1,4 @@
+Model,Accuracy,False Positive Rate,TP,TN,FP,FN
+Baseline (Rule-Based),0.4141,1.0,75950,0,107474,0
+Random Forest,0.9985,0.002,75897,107256,218,53
+Stacked RF+XGBoost,0.9985,0.0016,75843,107301,173,107

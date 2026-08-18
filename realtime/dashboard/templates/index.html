@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureWatch — Alert Management Console</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#f4f5f7;--surface:#ffffff;--border:#e1e4e8;--border2:#d0d4da;
+      --text:#1a202c;--text2:#4a5568;--text3:#718096;
+      --blue:#2563eb;--blue-bg:#eff6ff;
+      --green:#16a34a;--green-bg:#f0fdf4;--green-bd:#bbf7d0;
+      --red:#dc2626;--red-bg:#fef2f2;--red-bd:#fecaca;
+      --amber:#d97706;--amber-bg:#fffbeb;
+      --nav-h:48px;--sub-h:40px;
+    }
+    body.dark {
+      --bg:#0f172a;--surface:#1e293b;--border:#334155;--border2:#475569;
+      --text:#f1f5f9;--text2:#cbd5e1;--text3:#94a3b8;
+      --blue:#3b82f6;--blue-bg:#1e3a5f;
+      --green:#22c55e;--green-bg:#14532d;--green-bd:#166534;
+      --red:#f87171;--red-bg:#450a0a;--red-bd:#7f1d1d;
+      --amber:#fbbf24;--amber-bg:#451a03;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;min-height:100vh; }
+    .topnav { height:var(--nav-h);background:#1e293b;display:flex;align-items:center;padding:0 20px;gap:16px;position:sticky;top:0;z-index:100; }
+    .brand { display:flex;align-items:center;gap:8px;color:#fff;font-weight:600;font-size:14px;letter-spacing:-0.01em; }
+    .brand-icon { width:24px;height:24px;background:var(--blue);border-radius:5px;display:flex;align-items:center;justify-content:center; }
+    .brand-icon svg { width:14px;height:14px;fill:#fff; }
+    .brand-sep { width:1px;height:16px;background:#334155;margin:0 4px; }
+    .brand-org { font-size:12px;color:#94a3b8;font-weight:400; }
+    .nav-spacer { flex:1; }
+    .nav-status { display:flex;align-items:center;gap:6px;font-size:11px;color:#4ade80;font-weight:500; }
+    .status-dot { width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .nav-time { font-size:11px;color:#64748b;font-variant-numeric:tabular-nums;margin-left:12px; }
+    .subnav { height:var(--sub-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:stretch;padding:0 20px; }
+    .subnav-tab { display:flex;align-items:center;padding:0 14px;font-size:12px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:color 0.15s,border-color 0.15s;margin-bottom:-1px; }
+    .subnav-tab:hover { color:var(--text2); }
+    .subnav-tab.active { color:var(--blue);border-bottom-color:var(--blue); }
+    .subnav-spacer { flex:1; }
+    .subnav-right { display:flex;align-items:center;gap:8px; }
+    .refresh-note { font-size:11px;color:var(--text3); }
+    .main { padding:20px;max-width:1280px;margin:0 auto; }
+    .stat-row { display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px; }
+    .stat-card { background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px; }
+    .stat-label { font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px; }
+    .stat-value { font-size:28px;font-weight:600;line-height:1;margin-bottom:6px; }
+    .stat-value.blue{color:var(--blue)}.stat-value.green{color:var(--green)}.stat-value.red{color:var(--red)}.stat-value.amber{color:var(--amber)}
+    .stat-sub { font-size:11px;color:var(--text3); }
+    .card { background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden; }
+    .card-header { padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between; }
+    .card-title { font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.04em; }
+    .card-badge { font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:0.03em; }
+    .card-badge.info { background:var(--blue-bg);color:var(--blue); }
+    .card-body { padding:16px; }
+    .section-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:8px; }
+    .section-label { font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.05em; }
+    .count-badge { font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px; }
+    .count-badge.red { background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd); }
+    .count-badge.green { background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd); }
+    .search-wrap { display:flex;align-items:center;gap:8px;margin-bottom:10px; }
+    .search-input { flex:1;max-width:300px;padding:6px 10px;font-size:12px;border:1px solid var(--border);border-radius:4px;outline:none;color:var(--text);background:var(--surface); }
+    .search-input:focus { border-color:var(--blue); }
+    .export-btn { font-size:11px;font-weight:500;padding:5px 12px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;text-decoration:none;display:inline-block; }
+    .export-btn:hover { background:var(--bg); }
+    .data-table { width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;font-size:12px; }
+    .data-table th { background:var(--bg);padding:8px 12px;text-align:left;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap; }
+    #console-table thead th { position:sticky;top:0;z-index:1;background:var(--bg); }
+    .data-table td { padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle; }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tbody tr:hover td { background:var(--bg); }
+    .id-col { color:var(--text3);font-variant-numeric:tabular-nums; }
+    .time-col { color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap; }
+    .ip-col { font-family:'SFMono-Regular',Consolas,monospace;font-size:11px; }
+    .proto-col { font-weight:500; }
+    .sig-col { max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .sev { display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:0.03em; }
+    .sev-critical{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca}
+    .sev-high{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+    .sev-medium{background:#fffbeb;color:#b45309;border:1px solid #fde68a}
+    .sev-low{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+    .status { display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:0.03em; }
+    .status-threat{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+    .status-suppressed{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+    .conf-wrap { display:flex;align-items:center;gap:6px; }
+    .conf-track { width:52px;height:4px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
+    .conf-fill { height:100%;border-radius:99px;background:var(--red); }
+    .conf-fill.green { background:var(--green); }
+    .conf-val { font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums; }
+    .btn-group { display:flex;gap:4px; }
+    .btn { font-size:11px;font-weight:500;padding:3px 9px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;white-space:nowrap; }
+    .btn:hover { background:var(--bg); }
+    .btn.primary { background:var(--blue);color:#fff;border-color:var(--blue); }
+    .btn.primary:hover { background:#1d4ed8; }
+    .btn.danger { color:var(--red);border-color:var(--red); }
+    .btn.danger:hover { background:var(--red-bg); }
+    .empty { padding:48px 24px;text-align:center;color:var(--text3); }
+    .empty-icon { width:40px;height:40px;background:var(--green-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px; }
+    .empty-icon svg { width:20px;height:20px;stroke:var(--green);fill:none;stroke-width:2; }
+    .empty-title { font-size:13px;font-weight:500;color:var(--text2);margin-bottom:4px; }
+    .empty-sub { font-size:12px;color:var(--text3); }
+    .research-grid { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px; }
+    .metric-table { width:100%;border-collapse:collapse; }
+    .metric-table td { padding:7px 0;font-size:12px;border-bottom:1px solid var(--border); }
+    .metric-table tr:last-child td { border-bottom:none; }
+    .metric-table td:first-child { color:var(--text3); }
+    .metric-table td:last-child { text-align:right;font-weight:500; }
+    .tag-best { display:inline-block;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd);margin-left:4px; }
+    .bar-row { display:flex;align-items:center;gap:10px;margin-bottom:10px; }
+    .bar-label { font-size:11px;color:var(--text2);width:100px;flex-shrink:0;text-align:right; }
+    .bar-track { flex:1;height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden; }
+    .bar-fill { height:100%;border-radius:99px; }
+    .bar-val { font-size:11px;font-weight:500;width:48px; }
+    .info-banner { background:var(--blue-bg);border:1px solid #bfdbfe;border-radius:6px;padding:10px 14px;font-size:11px;color:#1e40af;margin-bottom:14px;line-height:1.6; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .page-footer { padding:16px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text3);background:var(--surface);margin-top:8px; }
+    .modal-overlay { display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center; }
+    .modal-box { background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;width:520px;max-width:90%; }
+    .modal-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:16px; }
+    .modal-title { font-size:13px;font-weight:600;color:var(--text); }
+    .modal-close { border:none;background:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1; }
+    .modal-table { width:100%;border-collapse:collapse;font-size:12px; }
+    .modal-table td { padding:7px 0;border-bottom:1px solid var(--border);color:var(--text); }
+    .modal-table tr:last-child td { border-bottom:none; }
+    .modal-table td:first-child { color:var(--text3);width:130px; }
+    .modal-footer { margin-top:16px;display:flex;gap:8px;justify-content:flex-end; }
+  </style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div class="brand-icon">
+      <svg viewBox="0 0 16 16"><path d="M8 1L2 3.5v4.5c0 3.5 2.5 6.5 6 7.5 3.5-1 6-4 6-7.5V3.5L8 1z"/></svg>
+    </div>
+    SecureWatch
+    <div class="brand-sep"></div>
+    <span class="brand-org">Alert Management Console</span>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-status"><div class="status-dot"></div>Monitoring active</div>
+  <div class="nav-time" id="clock">--:--:--</div>
+</nav>
+
+<div class="subnav">
+  <div class="subnav-tab active" onclick="switchTab('console',this)">Alert Console</div>
+  <div class="subnav-tab" onclick="switchTab('history',this)">Event History</div>
+  <div class="subnav-tab" onclick="switchTab('research',this)">Model Performance</div>
+  <div class="subnav-spacer"></div>
+  <div class="subnav-right">
+    <button class="btn" id="dark-btn" onclick="toggleDark()">Dark</button>
+    <button class="btn danger" onclick="clearAlerts()">Clear alerts</button>
+    <span class="refresh-note">Auto-refresh every 10s</span>
+  </div>
+</div>
+
+<div id="tab-console" class="tab-panel active">
+  <div class="main">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">Alerts received</div><div class="stat-value blue">{{ stats.total }}</div><div class="stat-sub">From Suricata IDS</div></div>
+      <div class="stat-card"><div class="stat-label">Require action</div><div class="stat-value red">{{ stats.attacks }}</div><div class="stat-sub">Escalated to analyst</div></div>
+      <div class="stat-card"><div class="stat-label">Auto-suppressed</div><div class="stat-value green">{{ stats.fp }}</div><div class="stat-sub">Classified as benign</div></div>
+      <div class="stat-card"><div class="stat-label">Suppression rate</div><div class="stat-value amber">{{ stats.fpr }}%</div><div class="stat-sub">ML filter efficiency</div></div>
+    </div>
+    <div class="section-row">
+      <div class="section-label">Open threats</div>
+      <span class="count-badge red">{{ stats.attacks }} open</span>
+    </div>
+    {% if alerts %}
+    <div style="max-height:calc(100vh - 280px);overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">
+    <table class="data-table" id="console-table" style="margin-bottom:0;border:none;">
+      <thead><tr><th>#</th><th>Time</th><th>Source</th><th>Destination</th><th>Proto</th><th>Event</th><th>Severity</th><th>Confidence</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for alert in alerts|reverse %}
+        <tr>
+          <td class="id-col">{{ alert.id }}</td>
+          <td class="time-col">{{ alert.timestamp[11:19] }}</td>
+          <td class="ip-col">{{ alert.src_ip }}</td>
+          <td class="ip-col">{{ alert.dest_ip }}</td>
+          <td class="proto-col">{{ alert.proto }}</td>
+          <td class="sig-col">{{ alert.signature[:65] }}{% if alert.count is defined and alert.count > 1 %}<span style="font-size:10px;background:#e5e7eb;color:#4a5568;padding:1px 6px;border-radius:99px;margin-left:4px;">×{{ alert.count }}</span>{% endif %}</td>
+          <td>{% if alert.confidence > 80 %}<span class="sev sev-critical">Critical</span>{% elif alert.confidence > 60 %}<span class="sev sev-high">High</span>{% elif alert.confidence > 40 %}<span class="sev sev-medium">Medium</span>{% else %}<span class="sev sev-low">Low</span>{% endif %}</td>
+          <td><div class="conf-wrap"><div class="conf-track"><div class="conf-fill" style="width:{{ alert.confidence }}%"></div></div><span class="conf-val">{{ alert.confidence }}%</span></div></td>
+          <td><div class="btn-group"><button class="btn primary" onclick="investigateAlert({{ alert.id }}, '{{ alert.signature }}', '{{ alert.src_ip }}', '{{ alert.dest_ip }}', '{{ alert.proto }}', {{ alert.confidence }})">Investigate</button><button class="btn" onclick="dismissAlert({{ alert.id }})">Dismiss</button></div></td>
+        </tr>
+        {% endfor %}
+     </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="empty" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <div class="empty-title">No active threats</div>
+      <div class="empty-sub">All alerts have been classified as benign and suppressed</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="tab-history" class="tab-panel">
+  <div class="main">
+    <div class="search-wrap">
+      <div class="section-label">All events</div>
+      <input class="search-input" type="text" id="history-search" placeholder="Search by signature or IP..." oninput="filterHistory()">
+      <a class="export-btn" href="/export" download="alerts.csv">Export CSV</a>
+      <span class="count-badge green">{{ stats.total }} total</span>
+    </div>
+    <table class="data-table" id="history-table">
+      <thead><tr><th>#</th><th>Timestamp</th><th>Event</th><th>Classification</th><th>Confidence</th></tr></thead>
+      <tbody>
+        {% for alert in all_alerts|reverse %}
+        <tr>
+          <td class="id-col">{{ alert.id }}</td>
+          <td class="time-col">{{ alert.timestamp[:19] }}</td>
+          <td class="sig-col" style="max-width:400px">{{ alert.signature[:80] }}</td>
+          <td>{% if alert.is_attack %}<span class="status status-threat">Threat</span>{% else %}<span class="status status-suppressed">Suppressed</span>{% endif %}</td>
+          <td><div class="conf-wrap"><div class="conf-track"><div class="conf-fill {% if not alert.is_attack %}green{% endif %}" style="width:{{ alert.confidence }}%"></div></div><span class="conf-val">{{ alert.confidence }}%</span></div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="tab-research" class="tab-panel">
+  <div class="main">
+    <div class="info-banner">Offline evaluation on CICIDS2017 dataset — 183,424 test flows. Results validated using 3-fold cross validation on 50,000 samples.</div>
+    <div class="research-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title">False positive rate — model comparison</div><span class="card-badge info">Offline results</span></div>
+        <div class="card-body">
+          <div class="bar-row"><div class="bar-label">Rule-based baseline</div><div class="bar-track"><div class="bar-fill" style="width:100%;background:#dc2626"></div></div><div class="bar-val" style="color:#dc2626">100%</div></div>
+          <div class="bar-row"><div class="bar-label">Random Forest</div><div class="bar-track"><div class="bar-fill" style="width:60%;background:#2563eb"></div></div><div class="bar-val" style="color:#2563eb">0.20%</div></div>
+          <div class="bar-row"><div class="bar-label">Stacked ensemble</div><div class="bar-track"><div class="bar-fill" style="width:48%;background:#16a34a"></div></div><div class="bar-val" style="color:#16a34a">0.16%</div></div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--green);font-weight:500;">99.8% reduction in false positives vs baseline</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Stacked model — test set metrics</div><span class="card-badge info">183,424 flows</span></div>
+        <div class="card-body">
+          <table class="metric-table">
+            <tr><td>True positives</td><td>75,843</td></tr>
+            <tr><td>True negatives</td><td>107,301</td></tr>
+            <tr><td>False positives</td><td>173 <span class="tag-best">99.8% reduced</span></td></tr>
+            <tr><td>False negatives</td><td>107</td></tr>
+            <tr><td>Accuracy</td><td>99.85%</td></tr>
+            <tr><td>Precision</td><td>99.77%</td></tr>
+            <tr><td>Recall</td><td>99.86%</td></tr>
+            <tr><td>F1 score</td><td>99.81%</td></tr>
+            <tr><td>AUC score</td><td>1.000</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><div class="card-title">Cross validation — 3-fold (50,000 samples)</div><span class="card-badge info">Generalisation check</span></div>
+      <div class="card-body">
+        <table class="data-table" style="margin-bottom:0;border:none;">
+          <thead><tr><th>Model</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1 Score</th><th>FPR</th><th>AUC</th></tr></thead>
+          <tbody>
+            <tr><td>Rule-based baseline</td><td style="color:var(--red)">41.41%</td><td>—</td><td>—</td><td>—</td><td style="color:var(--red)">100%</td><td>0.500</td></tr>
+            <tr><td>Random Forest</td><td>99.73% ± 0.01%</td><td>99.70% ± 0.05%</td><td>99.66% ± 0.05%</td><td>99.68% ± 0.02%</td><td style="color:var(--blue)">0.20%</td><td>1.000</td></tr>
+            <tr><td><strong>Stacked RF+XGBoost</strong></td><td><strong>99.83% ± 0.02%</strong></td><td><strong>99.70% ± 0.06%</strong></td><td><strong>99.89% ± 0.02%</strong></td><td><strong>99.79% ± 0.02%</strong></td><td style="color:var(--green)"><strong>0.16%</strong></td><td><strong>1.000</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page-footer">
+  <span>SecureWatch v1.0 — ML-powered alert triage</span>
+  <span id="footer-time"></span>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Alert Investigation</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <table class="modal-table">
+      <tr><td>Signature</td><td id="m-sig" style="font-weight:500;"></td></tr>
+      <tr><td>Source IP</td><td id="m-src" style="font-family:monospace;"></td></tr>
+      <tr><td>Destination</td><td id="m-dest" style="font-family:monospace;"></td></tr>
+      <tr><td>Protocol</td><td id="m-proto"></td></tr>
+      <tr><td>Confidence</td><td id="m-conf"></td></tr>
+      <tr><td>Recommendation</td><td id="m-rec" style="color:#d97706;font-weight:500;"></td></tr>
+    </table>
+    <div class="modal-footer">
+      <button onclick="closeModal()" class="btn">Close</button>
+      <button onclick="closeModal()" class="btn primary">Mark Investigated</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function tick(){
+  const t=new Date().toLocaleTimeString('en-GB',{hour12:false});
+  const d=new Date().toLocaleDateString('en-GB');
+  document.getElementById('clock').textContent=t;
+  const ft=document.getElementById('footer-time');
+  if(ft) ft.textContent=d+' '+t;
+}
+tick();
+setInterval(tick,1000);
+
+function dismissAlert(alertId){
+  if(!confirm('Dismiss this alert?')) return;
+  fetch(`/api/dismiss/${alertId}`,{method:'POST'})
+  .then(r=>r.json())
+  .then(data=>{ if(data.status==='dismissed') location.reload(); })
+  .catch(err=>console.error('Dismiss failed:',err));
+}
+
+function investigateAlert(alertId,signature,srcIp,destIp,proto,confidence){
+  document.getElementById('m-sig').textContent  =signature;
+  document.getElementById('m-src').textContent  =srcIp;
+  document.getElementById('m-dest').textContent =destIp;
+  document.getElementById('m-proto').textContent=proto;
+  document.getElementById('m-conf').textContent =confidence+'%';
+  let rec='Review network logs for this source IP';
+  if(confidence>80)      rec='High confidence — escalate immediately';
+  else if(confidence>60) rec='Investigate source IP and block if suspicious';
+  else                   rec='Low confidence — verify manually before action';
+  document.getElementById('m-rec').textContent=rec;
+  document.getElementById('modal').style.display='flex';
+  fetch(`/api/investigate/${alertId}`,{method:'POST'}).catch(()=>{});
+}
+
+function closeModal(){
+  document.getElementById('modal').style.display='none';
+}
+
+function filterHistory(){
+  const q=document.getElementById('history-search').value.toLowerCase();
+  document.querySelectorAll('#history-table tbody tr').forEach(row=>{
+    row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+function switchTab(name,el){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.subnav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  el.classList.add('active');
+}
+
+function toggleDark(){
+  const dark=document.body.classList.toggle('dark');
+  sessionStorage.setItem('darkMode',dark?'1':'0');
+  document.getElementById('dark-btn').textContent=dark?'Light':'Dark';
+}
+
+function clearAlerts(){
+  if(!confirm('Clear all alerts? This cannot be undone.')) return;
+  fetch('/api/clear',{method:'POST'})
+  .then(r=>r.json())
+  .then(()=>location.reload())
+  .catch(err=>console.error('Clear failed:',err));
+}
+
+setTimeout(()=>{
+  if(document.getElementById('modal').style.display==='flex'){
+    setTimeout(arguments.callee,10000);
+    return;
+  }
+  const activeTab=document.querySelector('.subnav-tab.active');
+  if(activeTab){
+    const m=activeTab.getAttribute('onclick').match(/'(\w+)'/);
+    if(m) sessionStorage.setItem('activeTab',m[1]);
+  }
+  location.reload();
+},10000);
+
+window.addEventListener('load',()=>{
+  const t=sessionStorage.getItem('activeTab');
+  if(t){const el=document.querySelector(`[onclick="switchTab('${t}',this)"]`);if(el)switchTab(t,el);}
+  if(sessionStorage.getItem('darkMode')==='1'){
+    document.body.classList.add('dark');
+    document.getElementById('dark-btn').textContent='Light';
+  }
+});
+</script>
+</body>
+</html>
