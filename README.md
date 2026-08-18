@@ -79,4 +79,4 @@ Real-time testing revealed a domain gap: individual exploit probe alerts, though
 
 ## Author
 
-Sanil Gurung (saann) — BSc Cybersecurity, Softwarica College of IT & E-Commerce (affiliated with Coventry University)
+Sanil Gurung 
